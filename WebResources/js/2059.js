@@ -56,10 +56,22 @@ window.CW.effectiveDateHandler = function (formContext) {
     // Business Rule: Effective Date cannot be blank — mark as required
     effectiveDateAttr.setRequiredLevel("required");
 
+    // AC2: Auto-format manually entered date to MM/DD/YYYY on change
     // Business Rule: Date cannot be in the future — validate on change
     effectiveDateAttr.addOnChange(function () {
         var selectedDate = effectiveDateAttr.getValue();
         if (selectedDate) {
+            // Auto-format: rebuild as local midnight so CRM displays MM/DD/YYYY correctly
+            var mm = selectedDate.getMonth();
+            var dd = selectedDate.getDate();
+            var yyyy = selectedDate.getFullYear();
+            var formatted = new Date(yyyy, mm, dd);
+            // Only re-set if the value differs (avoids infinite loop)
+            if (effectiveDateAttr.getValue().getTime() !== formatted.getTime()) {
+                effectiveDateAttr.setValue(formatted);
+            }
+
+            // Business Rule: Date cannot be in the future
             var now = new Date();
             var todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
             if (selectedDate > todayEnd) {
@@ -68,7 +80,6 @@ window.CW.effectiveDateHandler = function (formContext) {
                     "ERROR",
                     "effectivedate_future"
                 );
-                // Prevent save by setting a field-level notification
                 effectiveDateAttr.controls.forEach(function (ctrl) {
                     ctrl.setNotification("Effective Date cannot be in the future.");
                 });
