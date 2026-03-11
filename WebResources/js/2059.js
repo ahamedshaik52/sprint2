@@ -43,22 +43,53 @@ window.CW.effectiveDateHandler = function (formContext) {
     // Business Rule: Effective Date cannot be blank — mark as required
     effectiveDateAttr.setRequiredLevel("required");
 
-    // AC2: Auto-format manually entered date to MM/DD/YYYY on change
+    // AC2: Auto-format raw numeric input (e.g. "10101998") to MM/DD/YYYY
+    // CRM's native date field does NOT parse raw digits — it needs slashes.
+    // We attach a blur listener on the actual DOM input to intercept the
+    // raw text, parse 8-digit input as MMDDYYYY, and set the CRM value.
+    effectiveDateAttr.controls.forEach(function (ctrl) {
+        var ctrlName = ctrl.getName();
+        // Allow the DOM to render, then attach the blur handler
+        setTimeout(function () {
+            var input = document.querySelector("input[data-id='" + ctrlName + ".fieldControl-date-time-input']")
+                || document.querySelector("[data-id='" + ctrlName + "'] input")
+                || document.getElementById(ctrlName + "_datepicker_description");
+            if (!input) return;
+
+            input.addEventListener("blur", function () {
+                var raw = input.value.replace(/\D/g, "");
+                if (raw.length === 8) {
+                    var mm = parseInt(raw.substring(0, 2), 10);
+                    var dd = parseInt(raw.substring(2, 4), 10);
+                    var yyyy = parseInt(raw.substring(4, 8), 10);
+                    // Basic validation: valid month, day, and reasonable year
+                    if (mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31 && yyyy >= 1900 && yyyy <= 9999) {
+                        var dateObj = new Date(yyyy, mm - 1, dd);
+                        // Verify the date didn't roll over (e.g. Feb 30 → Mar 2)
+                        if (dateObj.getMonth() === mm - 1 && dateObj.getDate() === dd) {
+                            effectiveDateAttr.setValue(dateObj);
+                            effectiveDateAttr.fireOnChange();
+                        }
+                    }
+                }
+            });
+        }, 500);
+    });
+
     // Business Rule: Date cannot be in the future — validate on change
     effectiveDateAttr.addOnChange(function () {
         var selectedDate = effectiveDateAttr.getValue();
         if (selectedDate) {
-            // Auto-format: rebuild as local midnight so CRM displays MM/DD/YYYY correctly
+            // Normalize to local midnight so CRM displays MM/DD/YYYY correctly
             var mm = selectedDate.getMonth();
             var dd = selectedDate.getDate();
             var yyyy = selectedDate.getFullYear();
             var formatted = new Date(yyyy, mm, dd);
-            // Only re-set if the value differs (avoids infinite loop)
             if (effectiveDateAttr.getValue().getTime() !== formatted.getTime()) {
                 effectiveDateAttr.setValue(formatted);
             }
 
-            // Business Rule: Date cannot be in the future
+            // Block future dates
             var now = new Date();
             var todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
             if (selectedDate > todayEnd) {
