@@ -37,14 +37,13 @@ window.CW.effectiveDateHandler = function (formContext) {
     // Only set the date if the field is currently empty (new record)
     var currentValue = effectiveDateAttr.getValue();
     if (currentValue === null || currentValue === undefined) {
-        var today = new Date();
-        today.setHours(0, 0, 0, 0);
+        var now = new Date();
 
-        // CRM 9.1 on-premises bug fix: compensate for incorrect UTC offset subtraction
-        if (APPLY_TIMEZONE_FIX) {
-            var offsetMinutes = today.getTimezoneOffset();
-            today.setMinutes(today.getMinutes() + offsetMinutes);
-        }
+        // CRM 9.1 on-premises bug fix: use UTC midnight for today's local date
+        // so CRM's incorrect timezone offset subtraction doesn't shift the day
+        var today = APPLY_TIMEZONE_FIX
+            ? new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()))
+            : new Date(now.getFullYear(), now.getMonth(), now.getDate());
 
         effectiveDateAttr.setValue(today);
         effectiveDateAttr.fireOnChange();
