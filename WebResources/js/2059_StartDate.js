@@ -22,20 +22,24 @@ window.CW.effectiveDateHandler = function (formContext) {
     }
 
     // Auto-format raw numeric input (e.g. "12131998") to MM/DD/YYYY.
-    // Strategy:
-    //   1. Store raw digits on every keystroke via "input" event
-    //   2. Intercept "blur" in CAPTURE phase (fires before platform's handler)
-    //   3. If 8 raw digits found, stop the blur, format the value using
-    //      native setter + dispatched events so React sees it, then
-    //      re-trigger blur so the platform validates the formatted value
+    //
+    // Why this approach works:
+    //   Previous attempts (format on "input", intercept "blur") failed because
+    //   Dynamics 365 / React uses "focusout" for validation, and the platform's
+    //   own handlers overwrite values set during "input".
+    //
+    //   Solution: format BEFORE blur ever fires.
+    //   - "keydown" (Tab / Enter) fires before blur
+    //   - "mousedown" on document (click away) fires before blur
+    //   - "focusout" capture phase as a final safety net
+    //   By the time the platform's blur/focusout handler runs, the input
+    //   already contains "MM/DD/YYYY" → no error.
     var nativeSetter = Object.getOwnPropertyDescriptor(
         window.HTMLInputElement.prototype, "value"
     ).set;
 
     effectiveDateAttr.controls.forEach(function (ctrl) {
         var ctrlName = ctrl.getName();
-        var lastRawDigits = "";
-        var allowBlur = false; // when true, let blur pass through
 
         function attachListeners() {
             var input = document.querySelector("input[data-id='" + ctrlName + ".fieldControl-date-time-input']")
@@ -47,60 +51,52 @@ window.CW.effectiveDateHandler = function (formContext) {
                 return;
             }
 
-            // Track raw digits on every keystroke
-            input.addEventListener("input", function () {
-                var digits = input.value.replace(/\D/g, "");
-                if (digits.length > 0) {
-                    lastRawDigits = digits;
-                }
-            });
-
-            // Intercept blur in CAPTURE phase — before the platform's handler
-            input.addEventListener("blur", function (e) {
-                if (allowBlur) return; // let our re-triggered blur pass
-
-                var raw = lastRawDigits;
-                if (raw.length !== 8) {
-                    lastRawDigits = "";
-                    return; // not 8 digits — let normal blur proceed
-                }
+            // Core formatting function — idempotent, safe to call multiple times
+            function formatIfNeeded() {
+                var raw = input.value.replace(/\D/g, "");
+                if (raw.length !== 8) return false;
 
                 var mm = parseInt(raw.substring(0, 2), 10);
                 var dd = parseInt(raw.substring(2, 4), 10);
                 var yyyy = parseInt(raw.substring(4, 8), 10);
 
-                if (mm < 1 || mm > 12 || dd < 1 || dd > 31 || yyyy < 1900 || yyyy > 9999) {
-                    lastRawDigits = "";
-                    return; // invalid — let platform handle it
-                }
+                if (mm < 1 || mm > 12 || dd < 1 || dd > 31 || yyyy < 1900 || yyyy > 9999) return false;
 
                 var dateObj = new Date(yyyy, mm - 1, dd);
-                if (dateObj.getMonth() !== mm - 1 || dateObj.getDate() !== dd) {
-                    lastRawDigits = "";
-                    return; // date doesn't exist (e.g. Feb 30)
-                }
+                if (dateObj.getMonth() !== mm - 1 || dateObj.getDate() !== dd) return false;
 
-                // STOP this blur — platform must not see raw digits
-                e.stopImmediatePropagation();
-                e.stopPropagation();
-                lastRawDigits = "";
-
-                // Format the value using native setter so React sees it
                 var formatted = (mm < 10 ? "0" + mm : mm) + "/"
                     + (dd < 10 ? "0" + dd : dd) + "/" + yyyy;
+
+                // Set via native setter so React picks up the change
                 nativeSetter.call(input, formatted);
                 input.dispatchEvent(new Event("input", { bubbles: true }));
                 input.dispatchEvent(new Event("change", { bubbles: true }));
 
-                // Set via SDK
+                // Also set via SDK
                 effectiveDateAttr.setValue(dateObj);
                 effectiveDateAttr.fireOnChange();
+                return true;
+            }
 
-                // Re-trigger blur so the platform validates the formatted value
-                allowBlur = true;
-                input.blur();
-                allowBlur = false;
-            }, true); // ← capture phase
+            // 1) Tab / Enter — fires BEFORE blur
+            input.addEventListener("keydown", function (e) {
+                if (e.key === "Tab" || e.key === "Enter") {
+                    formatIfNeeded();
+                }
+            });
+
+            // 2) Click outside — mousedown fires BEFORE blur
+            document.addEventListener("mousedown", function (e) {
+                if (document.activeElement === input && !input.contains(e.target)) {
+                    formatIfNeeded();
+                }
+            }, true);
+
+            // 3) focusout capture — final safety net (React uses focusout, not blur)
+            input.addEventListener("focusout", function () {
+                formatIfNeeded();
+            }, true);
         }
 
         setTimeout(attachListeners, 500);
