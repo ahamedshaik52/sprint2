@@ -1,11 +1,24 @@
 // ============================================================
 // 2059.js — Phone Number Quick Create Form
 // ============================================================
+// ALPT-2059: Record Effective Date on Quick Create Phone Numbers Panel
 // Handles: Phone formatting, name field, primary phone check,
 //          and Effective Date auto-population with current date.
 // Entity:  cw_personphonenumber (sub-grid on Person table form)
 // Form:    Quick Create Form
 // Events:  OnLoad, OnSave
+//
+// Acceptance Criteria:
+//   AC1 — Effective Date field displayed with calendar picker,
+//          auto-populated with current date on load.
+//   AC2 — Manual entry auto-formats to MM/DD/YYYY, saves on blur.
+//   AC3 — Calendar picker populates MM/DD/YYYY, saves on blur.
+//
+// Business Rules — Effective Date:
+//   - Must follow system date format (MM/DD/YYYY)
+//   - Cannot be blank (field is required)
+//   - Date cannot be in the future
+//   - Text box only allows numeric values
 // ============================================================
 
 window.CW = window.CW || {};
@@ -40,7 +53,35 @@ window.CW.effectiveDateHandler = function (formContext) {
         return;
     }
 
-    // Only set the date if the field is currently empty (new record)
+    // Business Rule: Effective Date cannot be blank — mark as required
+    effectiveDateAttr.setRequiredLevel("required");
+
+    // Business Rule: Date cannot be in the future — validate on change
+    effectiveDateAttr.addOnChange(function () {
+        var selectedDate = effectiveDateAttr.getValue();
+        if (selectedDate) {
+            var now = new Date();
+            var todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+            if (selectedDate > todayEnd) {
+                formContext.ui.setFormNotification(
+                    "Effective Date cannot be a future date.",
+                    "ERROR",
+                    "effectivedate_future"
+                );
+                // Prevent save by setting a field-level notification
+                effectiveDateAttr.controls.forEach(function (ctrl) {
+                    ctrl.setNotification("Effective Date cannot be in the future.");
+                });
+            } else {
+                formContext.ui.clearFormNotification("effectivedate_future");
+                effectiveDateAttr.controls.forEach(function (ctrl) {
+                    ctrl.clearNotification();
+                });
+            }
+        }
+    });
+
+    // AC1: Auto-populate with current date if the field is empty (new record)
     var currentValue = effectiveDateAttr.getValue();
     if (currentValue === null || currentValue === undefined) {
         var now = new Date();
