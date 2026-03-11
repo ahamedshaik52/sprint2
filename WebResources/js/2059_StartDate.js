@@ -21,50 +21,56 @@ window.CW.effectiveDateHandler = function (formContext) {
         return;
     }
 
-    // Auto-format raw numeric input (e.g. "10101998") to MM/DD/YYYY on blur
+    // Auto-format raw numeric input (e.g. "12131998") to MM/DD/YYYY.
+    // We intercept on keydown (Tab/Enter) so the value is reformatted
+    // BEFORE the platform's blur/change validators fire.
     effectiveDateAttr.controls.forEach(function (ctrl) {
         var ctrlName = ctrl.getName();
 
-        function attachBlur() {
+        function formatRawDate(input) {
+            var raw = input.value.replace(/\D/g, "");
+            if (raw.length === 8) {
+                var mm = parseInt(raw.substring(0, 2), 10);
+                var dd = parseInt(raw.substring(2, 4), 10);
+                var yyyy = parseInt(raw.substring(4, 8), 10);
+                if (mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31 && yyyy >= 1900 && yyyy <= 9999) {
+                    var dateObj = new Date(yyyy, mm - 1, dd);
+                    if (dateObj.getMonth() === mm - 1 && dateObj.getDate() === dd) {
+                        var formatted = (mm < 10 ? "0" + mm : mm) + "/"
+                            + (dd < 10 ? "0" + dd : dd) + "/" + yyyy;
+                        input.value = formatted;
+                        effectiveDateAttr.setValue(dateObj);
+                        effectiveDateAttr.fireOnChange();
+                    }
+                }
+            }
+        }
+
+        function attachListeners() {
             var input = document.querySelector("input[data-id='" + ctrlName + ".fieldControl-date-time-input']")
                 || document.querySelector("[data-id='" + ctrlName + "'] input")
                 || document.getElementById(ctrlName + "_datepicker_description");
 
             if (!input) {
-                // Retry once more after another 500ms
-                setTimeout(attachBlur, 500);
+                setTimeout(attachListeners, 500);
                 return;
             }
 
-            // Use capturing phase (3rd arg = true) so this fires BEFORE
-            // the platform's own blur validator sees the raw input.
-            input.addEventListener("blur", function () {
-                var raw = input.value.replace(/\D/g, "");
-                // Only auto-format unambiguous 8-digit input (MMDDYYYY).
-                // 7-digit input is ambiguous (e.g. "1231994" could be
-                // 1/23/1994 or 12/3/1994), so we leave it for the user to clarify.
-                if (raw.length === 8) {
-                    var mm = parseInt(raw.substring(0, 2), 10);
-                    var dd = parseInt(raw.substring(2, 4), 10);
-                    var yyyy = parseInt(raw.substring(4, 8), 10);
-                    if (mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31 && yyyy >= 1900 && yyyy <= 9999) {
-                        var dateObj = new Date(yyyy, mm - 1, dd);
-                        // Verify the date didn't roll over (e.g. Feb 30 → Mar 2)
-                        if (dateObj.getMonth() === mm - 1 && dateObj.getDate() === dd) {
-                            // Rewrite the input's display value to formatted date
-                            // so the platform's validator sees a valid string
-                            var formatted = (mm < 10 ? "0" + mm : mm) + "/"
-                                + (dd < 10 ? "0" + dd : dd) + "/" + yyyy;
-                            input.value = formatted;
-                            effectiveDateAttr.setValue(dateObj);
-                            effectiveDateAttr.fireOnChange();
-                        }
-                    }
+            // Keydown fires before blur — reformat on Tab or Enter
+            // so the platform validator sees a valid date string
+            input.addEventListener("keydown", function (e) {
+                if (e.key === "Tab" || e.key === "Enter") {
+                    formatRawDate(input);
                 }
+            }, true);
+
+            // Also handle mouse click away (blur) as a fallback
+            input.addEventListener("blur", function () {
+                formatRawDate(input);
             }, true);
         }
 
-        setTimeout(attachBlur, 500);
+        setTimeout(attachListeners, 500);
     });
 };
 
