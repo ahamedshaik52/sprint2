@@ -20,12 +20,9 @@ CW.PhoneNumber = CW.PhoneNumber || {};
 // Time Zone Independent "Date Only" fields incorrectly subtract the
 // user's UTC offset on DISPLAY, shifting the date by one day.
 //
-// Why plain local midnight fixes it:
-//   setValue(new Date(y, m, d)) → CRM stores as UTC (local + offset)
-//   Bug: subtracts offset again on display → cancels out → correct date
-//
-// Why Date.UTC was WRONG:
-//   Date.UTC → UTC midnight → bug subtracts offset → previous day
+// Fix: Use plain local midnight — new Date(y, m, d)
+//   CRM stores as UTC (adds offset), then bug subtracts offset on
+//   display — the two cancel out, showing the correct date.
 //
 // Ref: https://dynamics-chronicles.com/article/how-fix-wrong-value-datetime-field-type-time-zone-independent-dynamics-v91-premises
 // Ref: https://community.dynamics.com/blogs/post/?postid=ec5303b1-2541-4897-b82b-50515dd3da13
