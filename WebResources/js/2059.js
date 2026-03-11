@@ -3,14 +3,12 @@
 // ============================================================
 // ALPT-2059: Record Effective Date on Quick Create Phone Numbers Panel
 // Handles: Phone formatting, name field, primary phone check,
-//          and Effective Date auto-population with current date.
+//          and Effective Date validation.
 // Entity:  cw_personphonenumber (sub-grid on Person table form)
 // Form:    Quick Create Form
 // Events:  OnLoad, OnSave
 //
 // Acceptance Criteria:
-//   AC1 — Effective Date field displayed with calendar picker,
-//          auto-populated with current date on load.
 //   AC2 — Manual entry auto-formats to MM/DD/YYYY, saves on blur.
 //   AC3 — Calendar picker populates MM/DD/YYYY, saves on blur.
 //
@@ -26,19 +24,8 @@ CW.PhoneNumber = CW.PhoneNumber || {};
 
 // ----------------------------------------------------------------
 // Effective Date Handler
-// Auto-populates the Effective Date field with the current system
-// date when the quick create form loads. User can override the date.
-// ----------------------------------------------------------------
-// CRM 9.1 on-premises known bug (Microsoft confirmed, no fix planned):
-// Time Zone Independent "Date Only" fields incorrectly subtract the
-// user's UTC offset on DISPLAY, shifting the date by one day.
-//
-// Fix: Use plain local midnight — new Date(y, m, d)
-//   CRM stores as UTC (adds offset), then bug subtracts offset on
-//   display — the two cancel out, showing the correct date.
-//
-// Ref: https://dynamics-chronicles.com/article/how-fix-wrong-value-datetime-field-type-time-zone-independent-dynamics-v91-premises
-// Ref: https://community.dynamics.com/blogs/post/?postid=ec5303b1-2541-4897-b82b-50515dd3da13
+// Sets the field as required, auto-formats to local midnight
+// (MM/DD/YYYY), and blocks future dates.
 // ----------------------------------------------------------------
 
 window.CW.effectiveDateHandler = function (formContext) {
@@ -91,20 +78,6 @@ window.CW.effectiveDateHandler = function (formContext) {
             }
         }
     });
-
-    // AC1: Auto-populate with current date if the field is empty (new record)
-    var currentValue = effectiveDateAttr.getValue();
-    if (currentValue === null || currentValue === undefined) {
-        var now = new Date();
-
-        // Use LOCAL midnight — CRM converts to UTC for storage, and
-        // the bug's redundant offset subtraction cancels out, displaying
-        // the correct date in every timezone.
-        var today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-
-        effectiveDateAttr.setValue(today);
-        effectiveDateAttr.fireOnChange();
-    }
 };
 
 
