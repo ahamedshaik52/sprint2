@@ -16,11 +16,13 @@ CW.PhoneNumber = CW.PhoneNumber || {};
 // Auto-populates the Effective Date field with the current system
 // date when the quick create form loads. User can override the date.
 // ----------------------------------------------------------------
-// Set to true if affected by the CRM 9.1 on-premises Time Zone
-// Independent bug (date displays one day behind).
+// CRM 9.1 on-premises has a Time Zone Independent bug where the
+// date can shift ±1 day depending on the user's UTC offset.
+// Fix: set the time to LOCAL NOON (12:00) so that even if CRM
+// applies an incorrect timezone shift of up to ±12 hours,
+// the date component stays on the correct day.
 // Ref: https://community.dynamics.com/blogs/post/?postid=ec5303b1-2541-4897-b82b-50515dd3da13
 // ----------------------------------------------------------------
-var APPLY_TIMEZONE_FIX = true;
 
 window.CW.effectiveDateHandler = function (formContext) {
     var EFFECTIVE_DATE_FIELD = "new_effectivedate"; // <-- Change to your actual field logical name
@@ -39,11 +41,9 @@ window.CW.effectiveDateHandler = function (formContext) {
     if (currentValue === null || currentValue === undefined) {
         var now = new Date();
 
-        // CRM 9.1 on-premises bug fix: use UTC midnight for today's local date
-        // so CRM's incorrect timezone offset subtraction doesn't shift the day
-        var today = APPLY_TIMEZONE_FIX
-            ? new Date(Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()))
-            : new Date(now.getFullYear(), now.getMonth(), now.getDate());
+        // Use local noon (12:00) — gives a ±12-hour buffer against
+        // any timezone offset so the date never shifts to another day
+        var today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0);
 
         effectiveDateAttr.setValue(today);
         effectiveDateAttr.fireOnChange();
