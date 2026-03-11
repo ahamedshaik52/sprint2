@@ -24,11 +24,17 @@ window.CW.effectiveDateHandler = function (formContext) {
     // Auto-format raw numeric input (e.g. "10101998") to MM/DD/YYYY on blur
     effectiveDateAttr.controls.forEach(function (ctrl) {
         var ctrlName = ctrl.getName();
-        setTimeout(function () {
+
+        function attachBlur() {
             var input = document.querySelector("input[data-id='" + ctrlName + ".fieldControl-date-time-input']")
                 || document.querySelector("[data-id='" + ctrlName + "'] input")
                 || document.getElementById(ctrlName + "_datepicker_description");
-            if (!input) return;
+
+            if (!input) {
+                // Retry once more after another 500ms
+                setTimeout(attachBlur, 500);
+                return;
+            }
 
             input.addEventListener("blur", function () {
                 var raw = input.value.replace(/\D/g, "");
@@ -49,7 +55,9 @@ window.CW.effectiveDateHandler = function (formContext) {
                     }
                 }
             });
-        }, 500);
+        }
+
+        setTimeout(attachBlur, 500);
     });
 };
 
