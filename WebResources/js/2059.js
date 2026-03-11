@@ -43,7 +43,7 @@ window.CW.effectiveDateHandler = function (formContext) {
         // CRM 9.1 on-premises bug fix: compensate for incorrect UTC offset subtraction
         if (APPLY_TIMEZONE_FIX) {
             var offsetMinutes = today.getTimezoneOffset();
-            today.setMinutes(today.getMinutes() - offsetMinutes);
+            today.setMinutes(today.getMinutes() + offsetMinutes);
         }
 
         effectiveDateAttr.setValue(today);
