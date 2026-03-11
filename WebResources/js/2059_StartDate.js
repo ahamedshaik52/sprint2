@@ -34,6 +34,10 @@ window.CW.startDateHandler = function (formContext) {
 
             input.addEventListener("blur", function () {
                 var raw = input.value.replace(/\D/g, "");
+                // Support 7-digit input (MDDYYYY) by padding to 8 digits (MMDDYYYY)
+                if (raw.length === 7) {
+                    raw = "0" + raw;
+                }
                 if (raw.length === 8) {
                     var mm = parseInt(raw.substring(0, 2), 10);
                     var dd = parseInt(raw.substring(2, 4), 10);
