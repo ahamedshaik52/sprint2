@@ -36,6 +36,8 @@ window.CW.effectiveDateHandler = function (formContext) {
                 return;
             }
 
+            // Use capturing phase (3rd arg = true) so this fires BEFORE
+            // the platform's own blur validator sees the raw input.
             input.addEventListener("blur", function () {
                 var raw = input.value.replace(/\D/g, "");
                 // Only auto-format unambiguous 8-digit input (MMDDYYYY).
@@ -49,12 +51,17 @@ window.CW.effectiveDateHandler = function (formContext) {
                         var dateObj = new Date(yyyy, mm - 1, dd);
                         // Verify the date didn't roll over (e.g. Feb 30 → Mar 2)
                         if (dateObj.getMonth() === mm - 1 && dateObj.getDate() === dd) {
+                            // Rewrite the input's display value to formatted date
+                            // so the platform's validator sees a valid string
+                            var formatted = (mm < 10 ? "0" + mm : mm) + "/"
+                                + (dd < 10 ? "0" + dd : dd) + "/" + yyyy;
+                            input.value = formatted;
                             effectiveDateAttr.setValue(dateObj);
                             effectiveDateAttr.fireOnChange();
                         }
                     }
                 }
-            });
+            }, true);
         }
 
         setTimeout(attachBlur, 500);
