@@ -1,28 +1,6 @@
-// ============================================================
-// 2059.js — Phone Number Quick Create Form
-// ============================================================
-// Handles: Phone formatting, name field, primary phone check,
-//          and Effective Date auto-population with current date.
-// Entity:  cw_personphonenumber (sub-grid on Person table form)
-// Form:    Quick Create Form
-// Events:  OnLoad, OnSave
-// ============================================================
 
 window.CW = window.CW || {};
 CW.PhoneNumber = CW.PhoneNumber || {};
-
-// ----------------------------------------------------------------
-// Effective Date Handler
-// Auto-populates the Effective Date field with the current system
-// date when the quick create form loads. User can override the date.
-// ----------------------------------------------------------------
-// CRM 9.1 on-premises has a Time Zone Independent bug where the
-// date can shift ±1 day depending on the user's UTC offset.
-// Fix: set the time to LOCAL NOON (12:00) so that even if CRM
-// applies an incorrect timezone shift of up to ±12 hours,
-// the date component stays on the correct day.
-// Ref: https://community.dynamics.com/blogs/post/?postid=ec5303b1-2541-4897-b82b-50515dd3da13
-// ----------------------------------------------------------------
 
 window.CW.effectiveDateHandler = function (formContext) {
     var EFFECTIVE_DATE_FIELD = "new_effectivedate"; // <-- Change to your actual field logical name
@@ -36,13 +14,10 @@ window.CW.effectiveDateHandler = function (formContext) {
         return;
     }
 
-    // Only set the date if the field is currently empty (new record)
     var currentValue = effectiveDateAttr.getValue();
     if (currentValue === null || currentValue === undefined) {
         var now = new Date();
 
-        // Use local noon (12:00) — gives a ±12-hour buffer against
-        // any timezone offset so the date never shifts to another day
         var today = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0);
 
         effectiveDateAttr.setValue(today);
