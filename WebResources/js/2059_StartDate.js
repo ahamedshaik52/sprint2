@@ -22,62 +22,88 @@ window.CW.effectiveDateHandler = function (formContext) {
     }
 
     // Auto-format raw numeric input (e.g. "12131998") to MM/DD/YYYY.
-    // Strategy: format the input value BEFORE blur fires so the platform's
-    // validator never sees raw digits → no error, no revert.
-    // Dynamics 365 UCI uses React, so we must use the native HTMLInput
-    // value setter + dispatch events for React to recognise the change.
+    // Strategy:
+    //   1. Store raw digits on every keystroke via "input" event
+    //   2. Intercept "blur" in CAPTURE phase (fires before platform's handler)
+    //   3. If 8 raw digits found, stop the blur, format the value using
+    //      native setter + dispatched events so React sees it, then
+    //      re-trigger blur so the platform validates the formatted value
     var nativeSetter = Object.getOwnPropertyDescriptor(
         window.HTMLInputElement.prototype, "value"
     ).set;
 
     effectiveDateAttr.controls.forEach(function (ctrl) {
         var ctrlName = ctrl.getName();
-        var formatting = false; // guard to prevent recursive input events
+        var lastRawDigits = "";
+        var allowBlur = false; // when true, let blur pass through
 
-        function attachInputListener() {
+        function attachListeners() {
             var input = document.querySelector("input[data-id='" + ctrlName + ".fieldControl-date-time-input']")
                 || document.querySelector("[data-id='" + ctrlName + "'] input")
                 || document.getElementById(ctrlName + "_datepicker_description");
 
             if (!input) {
-                setTimeout(attachInputListener, 500);
+                setTimeout(attachListeners, 500);
                 return;
             }
 
-            // On every keystroke, check if we have 8 digits and format
-            // immediately — while the field still has focus
+            // Track raw digits on every keystroke
             input.addEventListener("input", function () {
-                if (formatting) return;
+                var digits = input.value.replace(/\D/g, "");
+                if (digits.length > 0) {
+                    lastRawDigits = digits;
+                }
+            });
 
-                var raw = input.value.replace(/\D/g, "");
-                if (raw.length !== 8) return;
+            // Intercept blur in CAPTURE phase — before the platform's handler
+            input.addEventListener("blur", function (e) {
+                if (allowBlur) return; // let our re-triggered blur pass
+
+                var raw = lastRawDigits;
+                if (raw.length !== 8) {
+                    lastRawDigits = "";
+                    return; // not 8 digits — let normal blur proceed
+                }
 
                 var mm = parseInt(raw.substring(0, 2), 10);
                 var dd = parseInt(raw.substring(2, 4), 10);
                 var yyyy = parseInt(raw.substring(4, 8), 10);
 
-                if (mm >= 1 && mm <= 12 && dd >= 1 && dd <= 31 && yyyy >= 1900 && yyyy <= 9999) {
-                    var dateObj = new Date(yyyy, mm - 1, dd);
-                    if (dateObj.getMonth() === mm - 1 && dateObj.getDate() === dd) {
-                        var formatted = (mm < 10 ? "0" + mm : mm) + "/"
-                            + (dd < 10 ? "0" + dd : dd) + "/" + yyyy;
-
-                        // Use native setter so React picks up the change
-                        formatting = true;
-                        nativeSetter.call(input, formatted);
-                        input.dispatchEvent(new Event("input", { bubbles: true }));
-                        input.dispatchEvent(new Event("change", { bubbles: true }));
-                        formatting = false;
-
-                        // Also set via SDK to update the attribute value
-                        effectiveDateAttr.setValue(dateObj);
-                        effectiveDateAttr.fireOnChange();
-                    }
+                if (mm < 1 || mm > 12 || dd < 1 || dd > 31 || yyyy < 1900 || yyyy > 9999) {
+                    lastRawDigits = "";
+                    return; // invalid — let platform handle it
                 }
-            });
+
+                var dateObj = new Date(yyyy, mm - 1, dd);
+                if (dateObj.getMonth() !== mm - 1 || dateObj.getDate() !== dd) {
+                    lastRawDigits = "";
+                    return; // date doesn't exist (e.g. Feb 30)
+                }
+
+                // STOP this blur — platform must not see raw digits
+                e.stopImmediatePropagation();
+                e.stopPropagation();
+                lastRawDigits = "";
+
+                // Format the value using native setter so React sees it
+                var formatted = (mm < 10 ? "0" + mm : mm) + "/"
+                    + (dd < 10 ? "0" + dd : dd) + "/" + yyyy;
+                nativeSetter.call(input, formatted);
+                input.dispatchEvent(new Event("input", { bubbles: true }));
+                input.dispatchEvent(new Event("change", { bubbles: true }));
+
+                // Set via SDK
+                effectiveDateAttr.setValue(dateObj);
+                effectiveDateAttr.fireOnChange();
+
+                // Re-trigger blur so the platform validates the formatted value
+                allowBlur = true;
+                input.blur();
+                allowBlur = false;
+            }, true); // ← capture phase
         }
 
-        setTimeout(attachInputListener, 500);
+        setTimeout(attachListeners, 500);
     });
 };
 
