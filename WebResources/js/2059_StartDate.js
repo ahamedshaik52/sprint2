@@ -22,8 +22,9 @@ window.CW.effectiveDateHandler = function (formContext) {
     }
 
     // Auto-format raw numeric input (e.g. "12131998") to MM/DD/YYYY.
-    // We intercept on keydown (Tab/Enter) so the value is reformatted
-    // BEFORE the platform's blur/change validators fire.
+    // We listen on the "input" event so formatting happens AS the user
+    // types the 8th digit — before they ever tab out. The platform's
+    // blur validator will only ever see a properly formatted date.
     effectiveDateAttr.controls.forEach(function (ctrl) {
         var ctrlName = ctrl.getName();
 
@@ -56,17 +57,19 @@ window.CW.effectiveDateHandler = function (formContext) {
                 return;
             }
 
-            // Keydown fires before blur — reformat on Tab or Enter
-            // so the platform validator sees a valid date string
+            // "input" event fires on every keystroke — as soon as the
+            // 8th digit is typed, we immediately reformat to MM/DD/YYYY.
+            // The field already shows the formatted date before the user
+            // tabs out, so the platform's blur validator never sees raw digits.
+            input.addEventListener("input", function () {
+                formatRawDate(input);
+            });
+
+            // Keydown on Tab/Enter as a secondary safeguard
             input.addEventListener("keydown", function (e) {
                 if (e.key === "Tab" || e.key === "Enter") {
                     formatRawDate(input);
                 }
-            }, true);
-
-            // Also handle mouse click away (blur) as a fallback
-            input.addEventListener("blur", function () {
-                formatRawDate(input);
             }, true);
         }
 
