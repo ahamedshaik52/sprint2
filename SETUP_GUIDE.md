@@ -128,9 +128,46 @@ Same testing steps as the JavaScript approach above.
 
 ---
 
+## Known Issue: CRM 9.1 On-Premises — Time Zone Independent DateTime Bug
+
+If your **Effective Date** field uses **"Time Zone Independent"** behavior and you are running **Dynamics CRM 9.1 on-premises**, there is a [known bug](https://community.dynamics.com/blogs/post/?postid=ec5303b1-2541-4897-b82b-50515dd3da13) where DateTime fields display **one day behind** the actual value.
+
+### What Happens
+
+When you set a date on a Time Zone Independent field, CRM incorrectly subtracts the user's UTC timezone offset before displaying the value. For example, if you set the date to **March 11, 2026** and your timezone is UTC-5 (EST), the form may display **March 10, 2026**.
+
+### Fix Option A: Client-Side (JavaScript)
+
+In `WebResources/js/PhoneNumber_QuickCreate.js`, set the timezone fix flag to `true`:
+
+```javascript
+var APPLY_TIMEZONE_FIX = true; // Enable for CRM 9.1 on-premises TZ Independent bug
+```
+
+This adds the UTC offset to compensate for the incorrect subtraction.
+
+### Fix Option B: Server-Side (Retrieve Plugin)
+
+For a more comprehensive fix that corrects **all** Time Zone Independent fields on the entity (not just from this script), deploy the Retrieve plugin:
+
+1. Build the plugin from `Plugins/FixTimeZoneIndependentDatetime.cs`
+2. Register it using the **Plugin Registration Tool**:
+   - **Message:** `Retrieve`
+   - **Primary Entity:** Your phone number entity (e.g., `cr_phonenumber`)
+   - **Stage:** Post-Operation (40)
+   - **Execution Mode:** Synchronous
+3. The plugin automatically detects all Time Zone Independent DateTime fields and adds the UTC offset back to correct the display
+
+### Fix Option C: Change Field Behavior
+
+If the field doesn't need to be Time Zone Independent, consider changing it to **"User Local"** or **"Date Only"** behavior. Note: once a field is set to Time Zone Independent, you cannot change it back through the UI. You must edit the solution XML directly (change `Behavior` value from `3` to `1`), re-import, and publish.
+
+---
+
 ## Troubleshooting
 
 - **Field not populating:** Verify the logical name in the script matches your field's actual logical name
 - **Script not firing:** Ensure "Pass execution context as first parameter" is checked in the form event registration
-- **Date shows wrong value:** Check the user's timezone settings in Power Apps personalization settings
+- **Date shows wrong value (off by one day):** This is likely the CRM 9.1 Time Zone Independent bug — see the section above. Enable `APPLY_TIMEZONE_FIX = true` in the JS or deploy the Retrieve plugin
+- **Date shows wrong value (other):** Check the user's timezone settings in Power Apps personalization settings
 - **North52 formula not working:** Ensure the formula event is set to `Create` and the formula type supports client-side execution

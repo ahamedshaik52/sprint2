@@ -21,6 +21,12 @@ PhoneNumber.QuickCreate = (function () {
     // --------------------------------------------------------
     var EFFECTIVE_DATE_FIELD = "cr_effectivedate"; // <-- Change prefix (cr_) to your publisher prefix
 
+    // Set to true if your Effective Date field uses "Time Zone Independent"
+    // behavior AND you are on CRM 9.1 on-premises (known bug where dates
+    // display one day behind). This adds the UTC offset to compensate.
+    // Reference: https://community.dynamics.com/blogs/post/?postid=ec5303b1-2541-4897-b82b-50515dd3da13
+    var APPLY_TIMEZONE_FIX = false; // <-- Set to true if affected by the TZ Independent bug
+
     /**
      * Form OnLoad handler.
      * Sets the Effective Date field to today's date if it is empty.
@@ -63,6 +69,15 @@ PhoneNumber.QuickCreate = (function () {
             var today = new Date();
             // Reset time to start of day to store date-only
             today.setHours(0, 0, 0, 0);
+
+            // CRM 9.1 on-premises bug fix: When the Effective Date field uses
+            // "Time Zone Independent" behavior, CRM incorrectly subtracts the
+            // user's UTC offset, causing the date to display one day behind.
+            // Adding the offset back compensates for this bug.
+            if (APPLY_TIMEZONE_FIX) {
+                var offsetMinutes = today.getTimezoneOffset(); // negative for ahead of UTC
+                today.setMinutes(today.getMinutes() - offsetMinutes);
+            }
 
             effectiveDateAttr.setValue(today);
 
