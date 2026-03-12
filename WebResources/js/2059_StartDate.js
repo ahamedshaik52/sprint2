@@ -1,12 +1,15 @@
-function effectiveDateHandler() {
-    // Add your effective date handling logic here
+function effectiveDateHandler(date) {
+    // Implementation of effectiveDateHandler function
+    // This function is expected to handle the effective date
+    return new Date(date); // Example implementation; modify as needed
 }
 
-// existing functions
-function autoFormatHandler() {
-    // existing code for autoFormatHandler
+// Existing code
+
+function autoFormatHandler(date) {
+    // autoFormatHandler implementation
 }
 
-function formatDate() {
-    // existing code for formatDate
+function formatDate(date) {
+    // formatDate implementation
 }
