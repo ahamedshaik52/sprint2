@@ -1,15 +1,30 @@
-function effectiveDateHandler(date) {
-    // Implementation of effectiveDateHandler function
-    // This function is expected to handle the effective date
-    return new Date(date); // Example implementation; modify as needed
+function effectiveDateHandler() {
+    let listenerAttached = false;
+    let maxAttempts = 5;
+    let attempts = 0;
+
+    const checkDate = () => {
+        // Logic to handle date if needed
+        if (!listenerAttached && attempts < maxAttempts) {
+            // Attach listener
+            listenerAttached = true;
+            attempts++;
+            // Example of retry logic
+            setTimeout(checkDate, 1000);
+        } else if (listenerAttached) {
+            console.log('Listener already attached.');
+        } else {
+            console.error('Max attempts reached. Halting retry.');
+        }
+    };
+
+    checkDate();
 }
 
-// Existing code
-
-function autoFormatHandler(date) {
-    // autoFormatHandler implementation
+function autoFormatHandler() {
+    // Existing autoFormatHandler function body
 }
 
 function formatDate(date) {
-    // formatDate implementation
+    // Existing formatDate function body
 }
